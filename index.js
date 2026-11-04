@@ -430,7 +430,7 @@ function ddToast(text){
  let t=document.querySelector('.dd-toast');if(!t){t=document.createElement('div');t.className='dd-toast';t.setAttribute('role','status');document.body.append(t);}
  t.textContent=text;t.classList.add('is-on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('is-on'),2600);
 }
-function ddOpenViewer(url){
+function ddOpenViewer(url,options={}){
  let dlg=document.querySelector('dialog.dd-viewer');
  if(!dlg){
   dlg=document.createElement('dialog');dlg.className='dd-viewer';dlg.setAttribute('aria-label','果冻放大图');
@@ -445,11 +445,13 @@ function ddOpenViewer(url){
  }
  const img=dlg.querySelector('img');
  img.src=url;
+ img.alt=String(options.alt||'放大查看的图片');
  ddJellyClearSelection(img);{const p=dlg.querySelector('.dd-jb-panel');if(p)p.hidden=true;}dlg._ddMsg?.('');
  ddAttachJelly(img);dlg._ddPaintBar?.();
  dlg._ddOpenedAt=Date.now();
  ddBallInto(dlg);
  if(!dlg.open){if(typeof dlg.showModal==='function')dlg.showModal();else{dlg.setAttribute('open','');dlg.style.position='fixed';}}
+ return dlg;
 }
 // 模态弹窗会把页面其他内容压在下面，悬浮球就看不见了；弹窗打开期间把球临时搬进弹窗里，关闭后搬回 body。
 function ddBallInto(dlg){const b=document.querySelector('.dd-ball');if(b&&b.parentElement!==dlg)dlg.append(b);}
@@ -512,6 +514,40 @@ async function ddSourceOf(hit){
   catch{try{return hit.el.toDataURL('image/png');}catch{return '';}}
  }
  return '';
+}
+
+// ===== 外部插件接口 =====
+// 其他扩展只需要传入图片地址；选图、果冻设置与弹窗生命周期仍由 Duang 自己管理。
+async function ddOpenExternalImage(source,options={}){
+ let url='';
+ if(typeof source==='string')url=source.trim();
+ else if(source instanceof HTMLImageElement)url=String(source.currentSrc||source.src||'').trim();
+ else if(source instanceof HTMLCanvasElement)url=await ddSourceOf({kind:'canvas',el:source});
+ else if(source&&typeof source==='object')url=String(source.url||source.src||'').trim();
+ if(!url)throw new TypeError('DuangDuang.openImage 需要有效的图片地址、img 或 canvas');
+ const materialized=await ddMaterialize(url);
+ if(!materialized)throw new Error('DuangDuang 无法读取这张图片');
+ ddOpenViewer(materialized,options);
+ return true;
+}
+function ddCloseExternalViewer(){
+ const dlg=document.querySelector('dialog.dd-viewer');
+ if(!dlg)return false;
+ if(dlg.open&&typeof dlg.close==='function')dlg.close();
+ else{dlg.removeAttribute('open');dlg.remove();}
+ return true;
+}
+function ddExposeApi(){
+ const methods={
+  version:'0.3.3',
+  openImage:ddOpenExternalImage,
+  close:ddCloseExternalViewer,
+  isOpen:()=>!!document.querySelector('dialog.dd-viewer[open]')
+ };
+ const current=window.DuangDuang;
+ if(current&&typeof current==='object')Object.assign(current,methods);
+ else window.DuangDuang=methods;
+ window.dispatchEvent(new CustomEvent('duangduang:ready',{detail:{api:window.DuangDuang}}));
 }
 
 // ===== 选图模式 =====
@@ -781,6 +817,7 @@ function ddMountSettings(){
 }
 
 function ddInit(){
+ ddExposeApi();
  if(window.__duangduangReady)return;window.__duangduangReady=true;
  ddMountBall();
  let tries=0;const t=setInterval(()=>{if(ddMountSettings()||++tries>40)clearInterval(t);},500);

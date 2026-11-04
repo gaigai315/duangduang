@@ -23,4 +23,19 @@ git clone https://github.com/1614130601zjs-del/duangduang.git
 
 手机摇晃需要用 `http://127.0.0.1` 或 https 访问酒馆。
 
+## 外部插件调用
+
+其他 SillyTavern 扩展可以把图片地址直接交给 Duang 打开，不需要模拟点击悬浮球：
+
+```js
+await window.DuangDuang?.openImage('/backgrounds/example.png', {
+  alt: '图片说明'
+});
+```
+
+- 支持同源路径、普通 URL、`HTMLImageElement` 和 `HTMLCanvasElement`。
+- `openImage()` 返回 `Promise<boolean>`；图片来源无效时会抛出错误。
+- 可用 `window.DuangDuang?.close()` 关闭弹窗，或用 `isOpen()` 查询是否已打开。
+- 插件加载完成时会派发 `duangduang:ready` 事件，未安装 Duang 时调用方应隐藏入口或自行降级。
+
 果冻引擎最初来自 [拾帧](https://github.com/1614130601zjs-del/shizhen)。
